@@ -1,0 +1,29 @@
+# Python bytecode/cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# IDE configurations
+.vscode/
+.idea/
+
+# Large video files
+*.mp4
+*.avi
+*.mkv
+*.mov
+
+# Extracted frame images in the project
+Video_to_frame/11_frames*.jpg
+*.jpg
+*.png
+*.jpeg
