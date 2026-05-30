@@ -1,0 +1,269 @@
+{% extends "layout.html" %}
+
+{% block title %}Live Webcam Monitor | GuardianAI{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 1.5rem;">
+    <a href="{{ url_for('index') }}" class="btn btn-secondary btn-sm" id="btn-back">
+        <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+    </a>
+</div>
+
+<div class="hero" style="margin: 1.5rem 0 2rem; text-align: left;">
+    <h1 style="font-size: 2.2rem; margin-bottom: 0.5rem;">Live Webcam Monitor</h1>
+    <p>Webcam active and scanning. The system is tracking your joint positions. Keep the subject fully in frame for accurate classification.</p>
+</div>
+
+<div class="workspace-layout">
+    <!-- Stream Player Area -->
+    <div class="video-container" style="box-shadow: 0 0 30px rgba(124, 58, 237, 0.15);">
+        <img src="{{ url_for('video_feed') }}" class="video-feed" alt="Live Webcam Stream" id="webcam-feed">
+    </div>
+
+    <!-- Stats & Controls Sidebar -->
+    <div class="dashboard-sidebar">
+        <div class="glass-card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.2rem;">
+            <h2 style="font-size: 1.2rem; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem;">
+                <i class="fa-solid fa-gauge-high"></i> System Monitor
+            </h2>
+            
+            <div class="stat-box">
+                <span class="stat-label">Model State</span>
+                <span class="stat-value success" id="status-state">ACTIVE</span>
+            </div>
+
+            <div class="stat-box">
+                <span class="stat-label">Subject Posture</span>
+                <span class="stat-value" id="status-posture" style="color: var(--primary);">DETECTORS LIVE</span>
+            </div>
+            
+            <div class="stat-box">
+                <span class="stat-label">Emergency Relay</span>
+                <span class="stat-value" id="status-relay" style="font-size: 1rem; color: var(--text-muted);">READY</span>
+            </div>
+
+            <button class="btn btn-danger" id="btn-force-trigger" onclick="forceTriggerAlert()">
+                <i class="fa-solid fa-triangle-exclamation"></i> Force Fall Alert
+            </button>
+        </div>
+
+        <!-- Spatial Profiler (Graphical Keypoint Representation) -->
+        <div class="glass-card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.2rem; margin-top: 1rem;">
+            <h2 style="font-size: 1.2rem; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem;">
+                <i class="fa-solid fa-chart-line"></i> Spatial Profiler
+            </h2>
+            
+            <div style="display: flex; gap: 1rem; height: 180px;">
+                <!-- Vertical Skeleton Profile canvas -->
+                <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); padding: 0.5rem;">
+                    <span style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.25rem; white-space: nowrap;">Skeleton Vert</span>
+                    <canvas id="skeleton-profile-canvas" width="60" height="130" style="width: 60px; height: 130px;"></canvas>
+                </div>
+                
+                <!-- Dispersion Chart canvas -->
+                <div style="flex: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); padding: 0.5rem;">
+                    <span style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.25rem; white-space: nowrap;">Dispersion Timeline</span>
+                    <canvas id="dispersion-timeline-canvas" width="140" height="130" style="width: 140px; height: 130px;"></canvas>
+                </div>
+            </div>
+            
+            <!-- Real-time metrics values -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.8rem;">
+                <div class="stat-box" style="padding: 0.4rem 0.6rem; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <span class="stat-label" style="font-size: 0.7rem; color: #3b82f6; white-space: nowrap;">Vert Spread</span>
+                    <span class="stat-value" id="val-v-spread" style="font-size: 0.9rem;">0%</span>
+                </div>
+                <div class="stat-box" style="padding: 0.4rem 0.6rem; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <span class="stat-label" style="font-size: 0.7rem; color: #f97316; white-space: nowrap;">Horiz Spread</span>
+                    <span class="stat-value" id="val-h-spread" style="font-size: 0.9rem;">0%</span>
+                </div>
+                <div class="stat-box" style="padding: 0.4rem 0.6rem; grid-column: span 2; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <span class="stat-label" style="font-size: 0.7rem; color: #10b981; white-space: nowrap;">Head Rel Position (RHP)</span>
+                    <span class="stat-value" id="val-rhp" style="font-size: 0.9rem;">0%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('nav-webcam').classList.add('active');
+
+    // History buffers for real-time scrolling dispersion timeline
+    const vHistory = new Array(30).fill(0.0);
+    const hHistory = new Array(30).fill(0.0);
+
+    // Poll the status API periodically (every 250ms) to check if a fall has been detected.
+    let statusInterval = setInterval(checkFallStatus, 250);
+
+    function checkFallStatus() {
+        fetch("{{ url_for('get_status') }}")
+            .then(response => response.json())
+            .then(data => {
+                if (data.fall_detected) {
+                    clearInterval(statusInterval);
+                    window.location.href = "{{ url_for('alert_page') }}";
+                }
+                
+                // Update UI status widgets dynamically
+                const postureEl = document.getElementById('status-posture');
+                if (data.current_state === 'FALLEN') {
+                    postureEl.textContent = 'FALLEN';
+                    postureEl.className = 'stat-value danger';
+                } else if (data.current_state === 'FALLING') {
+                    postureEl.textContent = 'FALLING...';
+                    postureEl.className = 'stat-value warning';
+                } else if (data.current_state === 'STANDING') {
+                    postureEl.textContent = 'STANDING';
+                    postureEl.className = 'stat-value success';
+                }
+
+                // Update text metrics values
+                const vSpread = data.v_spread || 0.0;
+                const hSpread = data.h_spread || 0.0;
+                const rhp = data.rhp || 0.0;
+
+                document.getElementById('val-v-spread').textContent = Math.round(vSpread * 100) + '%';
+                document.getElementById('val-h-spread').textContent = Math.round(hSpread * 100) + '%';
+                document.getElementById('val-rhp').textContent = Math.round(rhp * 100) + '%';
+
+                // Redraw canvases
+                updateDispersionChart(vSpread, hSpread);
+                updateSkeletonProfile(rhp, data.current_state);
+            })
+            .catch(err => {
+                console.error("Error polling fall status:", err);
+            });
+    }
+
+    function updateDispersionChart(vSpread, hSpread) {
+        vHistory.push(vSpread);
+        vHistory.shift();
+        hHistory.push(hSpread);
+        hHistory.shift();
+
+        const canvas = document.getElementById('dispersion-timeline-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // Draw horizontal grid lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 4; i++) {
+            const y = (h / 4) * i;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(w, y);
+            ctx.stroke();
+        }
+
+        // Draw line curves
+        function drawCurve(history, color) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2.5;
+            ctx.lineJoin = 'round';
+            for (let i = 0; i < history.length; i++) {
+                const x = (w / (history.length - 1)) * i;
+                // Scale coordinate so that 0-1 matches 80%-10% of canvas height (adding top/bottom margins)
+                const y = h - 10 - (history[i] * (h - 20));
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+        }
+
+        drawCurve(vHistory, '#3b82f6'); // Vert Spread (Blue)
+        drawCurve(hHistory, '#f97316'); // Horiz Spread (Orange)
+    }
+
+    function updateSkeletonProfile(rhp, currentState) {
+        const canvas = document.getElementById('skeleton-profile-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // Dynamic nodes color based on the current posture warning level
+        let color = '#10b981'; // Green (Standing)
+        if (currentState === 'FALLEN') {
+            color = '#ef4444'; // Red
+        } else if (currentState === 'FALLING') {
+            color = '#f59e0b'; // Orange
+        }
+
+        const padding = 15;
+        const graphHeight = h - 2 * padding;
+
+        // Draw Spine line guide
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(w / 2, padding);
+        ctx.lineTo(w / 2, h - padding);
+        ctx.stroke();
+
+        // Map head vertical position from relative head position (RHP)
+        // Standing: RHP ~ 0.1 -> head is near top (padding + 10)
+        // Fallen/Bending: RHP increases -> head collapses down towards hips/feet
+        const headY = padding + Math.min(graphHeight, Math.max(0, rhp * graphHeight));
+
+        // Anchor feet at bottom
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.beginPath();
+        ctx.arc(w / 2, h - padding, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Hip position collapses dynamically relative to head
+        const hipY = h - padding - (h - padding - headY) * 0.45;
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.beginPath();
+        ctx.arc(w / 2, hipY, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Shoulder position between Head and Hip
+        const shoulderY = headY + (hipY - headY) * 0.35;
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.beginPath();
+        ctx.arc(w / 2, shoulderY, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw Head node with glowing aura
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(w / 2, headY, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(w / 2, headY, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0; // reset shadow
+    }
+
+    function forceTriggerAlert() {
+        fetch("{{ url_for('get_status') }}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ fall_detected: true })
+        }).then(() => {
+            window.location.href = "{{ url_for('alert_page') }}";
+        });
+    }
+</script>
+{% endblock %}

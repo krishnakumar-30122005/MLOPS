@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AI-Powered Fall Detection System utilizing computer vision and YOLOv8 pose estimation to detect and alert in real-time.">
+    <title>{% block title %}AI Fall Detection System{% endblock %}</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- FontAwesome Icons for visual enhancement -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    {% block head %}{% endblock %}
+</head>
+<body class="{% block body_class %}{% endblock %}">
+    
+    <header>
+        <div class="nav-container">
+            <a href="{{ url_for('index') }}" class="logo" id="logo-main">
+                <span class="logo-icon"></span>
+                <span>GuardianAI</span>
+            </a>
+            <ul class="nav-links">
+                <li><a href="{{ url_for('index') }}" id="nav-home">Dashboard</a></li>
+                <li><a href="{{ url_for('webcam') }}" id="nav-webcam">Webcam Stream</a></li>
+                <li><a href="{{ url_for('upload_page') }}" id="nav-upload">Video Upload</a></li>
+            </ul>
+        </div>
+    </header>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer>
+        <div class="footer-content">
+            <p>&copy; 2026 GuardianAI. All rights reserved. Powered by YOLOv8 Pose Estimation.</p>
+        </div>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

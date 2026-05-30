@@ -1,0 +1,102 @@
+{% extends "layout.html" %}
+
+{% block title %}EMERGENCY ALERT | GuardianAI{% endblock %}
+
+{% block body_class %}alert-active{% endblock %}
+
+{% block content %}
+<div class="alarm-light"></div>
+<div class="alert-wrapper">
+    <div class="alert-card">
+        <div class="alert-icon-ring">
+            <i class="fa-solid fa-bell alert-icon"></i>
+        </div>
+        <h1 id="alert-title">FALL DETECTED!</h1>
+        <p id="alert-desc">The GuardianAI visual tracking engine has classified a sudden change in posture and vertical displacement corresponding to a human fall. Please check on the subject immediately.</p>
+        
+        <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 1.5rem;">
+            <button class="btn btn-secondary" onclick="resetAlertSystem()" id="btn-reset-alert" style="background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); font-weight: 700;">
+                <i class="fa-solid fa-bell-slash"></i> Dismiss Alarm & Reset
+            </button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Play a buzzer alarm sound or synthesize a simple tone if possible
+    let audioCtx = null;
+    let alarmInterval = null;
+
+    function playAlarmSound() {
+        try {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            
+            // Create dual tone frequency oscillator
+            let osc1 = audioCtx.createOscillator();
+            let osc2 = audioCtx.createOscillator();
+            let gainNode = audioCtx.createGain();
+            
+            osc1.type = 'sawtooth';
+            osc1.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+            
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
+            
+            gainNode.gain.setValueAtTime(0.08, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.4);
+            
+            osc1.connect(gainNode);
+            osc2.connect(gainNode);
+            gainNode.connect(audioCtx.destination);
+            
+            osc1.start();
+            osc2.start();
+            osc1.stop(audioCtx.currentTime + 0.4);
+            osc2.stop(audioCtx.currentTime + 0.4);
+        } catch (e) {
+            console.log("Audio play blocked by browser autoplay policy.");
+        }
+    }
+
+    // Attempt to sound tone every 1 second
+    document.body.addEventListener('click', () => {
+        if (!alarmInterval) {
+            playAlarmSound();
+            alarmInterval = setInterval(playAlarmSound, 1000);
+        }
+    }, { once: true });
+
+    // Auto-attempt sound tone on load (might be blocked until user interaction)
+    setTimeout(() => {
+        playAlarmSound();
+        alarmInterval = setInterval(playAlarmSound, 1000);
+    }, 500);
+
+    function resetAlertSystem() {
+        if (alarmInterval) {
+            clearInterval(alarmInterval);
+        }
+        
+        fetch("{{ url_for('reset_status') }}", { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Redirect back to main dashboard
+                    window.location.href = "{{ url_for('index') }}";
+                }
+            })
+            .catch(err => {
+                console.error("Error resetting system:", err);
+                // Fallback redirect
+                window.location.href = "{{ url_for('index') }}";
+            });
+    }
+</script>
+{% endblock %}

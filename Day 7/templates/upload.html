@@ -1,0 +1,372 @@
+{% extends "layout.html" %}
+
+{% block title %}Upload Video Analysis | GuardianAI{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 1.5rem;">
+    <a href="{{ url_for('index') }}" class="btn btn-secondary btn-sm" id="btn-back">
+        <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+    </a>
+</div>
+
+<div class="hero" style="margin: 1.5rem 0 2rem; text-align: left;">
+    <h1 style="font-size: 2.2rem; margin-bottom: 0.5rem;">Video File Diagnostics</h1>
+    <p>Upload security camera recordings or other video files in `.mp4` or `.avi` format. The system will analyze the gait and pose structure frame by frame.</p>
+</div>
+
+{% if filename %}
+<!-- playback view -->
+<div class="workspace-layout">
+    <!-- Stream Player Area -->
+    <div class="video-container" style="box-shadow: 0 0 30px rgba(124, 58, 237, 0.15);">
+        <img src="{{ url_for('video_feed_file', filename=filename) }}" class="video-feed" alt="Video File Processing Stream" id="video-stream">
+    </div>
+
+    <!-- Stats & Controls Sidebar -->
+    <div class="dashboard-sidebar">
+        <div class="glass-card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.2rem;">
+            <h2 style="font-size: 1.2rem; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem;">
+                <i class="fa-solid fa-gauge-high"></i> File Diagnostics
+            </h2>
+            
+            <div class="stat-box">
+                <span class="stat-label">File Name</span>
+                <span class="stat-value" style="font-size: 0.95rem; word-break: break-all;" id="file-name-label">{{ filename }}</span>
+            </div>
+
+            <div class="stat-box">
+                <span class="stat-label">Subject Posture</span>
+                <span class="stat-value" id="status-posture" style="color: var(--primary);">PROCESSING</span>
+            </div>
+            
+            <a href="{{ url_for('upload_page') }}" class="btn btn-primary" id="btn-upload-another">
+                <i class="fa-solid fa-upload"></i> Analyze Another File
+            </a>
+        </div>
+
+        <!-- Spatial Profiler (Graphical Keypoint Representation) -->
+        <div class="glass-card" style="padding: 1.5rem; display: flex; flex-direction: column; gap: 1.2rem; margin-top: 1rem;">
+            <h2 style="font-size: 1.2rem; font-weight: 600; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem;">
+                <i class="fa-solid fa-chart-line"></i> Spatial Profiler
+            </h2>
+            
+            <div style="display: flex; gap: 1rem; height: 180px;">
+                <!-- Vertical Skeleton Profile canvas -->
+                <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); padding: 0.5rem;">
+                    <span style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.25rem; white-space: nowrap;">Skeleton Vert</span>
+                    <canvas id="skeleton-profile-canvas" width="60" height="130" style="width: 60px; height: 130px;"></canvas>
+                </div>
+                
+                <!-- Dispersion Chart canvas -->
+                <div style="flex: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05); padding: 0.5rem;">
+                    <span style="font-size: 0.72rem; color: var(--text-muted); margin-bottom: 0.25rem; white-space: nowrap;">Dispersion Timeline</span>
+                    <canvas id="dispersion-timeline-canvas" width="140" height="130" style="width: 140px; height: 130px;"></canvas>
+                </div>
+            </div>
+            
+            <!-- Real-time metrics values -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.8rem;">
+                <div class="stat-box" style="padding: 0.4rem 0.6rem; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <span class="stat-label" style="font-size: 0.7rem; color: #3b82f6; white-space: nowrap;">Vert Spread</span>
+                    <span class="stat-value" id="val-v-spread" style="font-size: 0.9rem;">0%</span>
+                </div>
+                <div class="stat-box" style="padding: 0.4rem 0.6rem; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <span class="stat-label" style="font-size: 0.7rem; color: #f97316; white-space: nowrap;">Horiz Spread</span>
+                    <span class="stat-value" id="val-h-spread" style="font-size: 0.9rem;">0%</span>
+                </div>
+                <div class="stat-box" style="padding: 0.4rem 0.6rem; grid-column: span 2; display: flex; flex-direction: column; align-items: center; justify-content: center;">
+                    <span class="stat-label" style="font-size: 0.7rem; color: #10b981; white-space: nowrap;">Head Rel Position (RHP)</span>
+                    <span class="stat-value" id="val-rhp" style="font-size: 0.9rem;">0%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% else %}
+<!-- upload view -->
+<div class="glass-card" style="max-width: 700px; margin: 0 auto;">
+    <form id="upload-form" action="{{ url_for('upload_file') }}" method="POST" enctype="multipart/form-data">
+        <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+            <div class="upload-icon">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+            </div>
+            <h2 style="font-size: 1.4rem; margin-bottom: 0.5rem;">Drag & Drop Video File</h2>
+            <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.5rem;">Supports MP4 and AVI files up to 100MB</p>
+            <span class="btn btn-secondary btn-sm">Browse Files</span>
+            <input type="file" name="file" id="file-input" class="upload-input" accept=".mp4,.avi">
+        </div>
+        
+        <div class="upload-progress" id="progress-container">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        
+        <div id="upload-status" style="margin-top: 1rem; text-align: center; font-size: 0.95rem; color: var(--text-muted); display: none;">
+            Uploading video...
+        </div>
+    </form>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('nav-upload').classList.add('active');
+
+    {% if filename %}
+    // History buffers for real-time scrolling dispersion timeline
+    const vHistory = new Array(30).fill(0.0);
+    const hHistory = new Array(30).fill(0.0);
+
+    // Poll status when analyzing a file
+    let statusInterval = setInterval(checkFallStatus, 250);
+
+    function checkFallStatus() {
+        fetch("{{ url_for('get_status') }}")
+            .then(response => response.json())
+            .then(data => {
+                if (data.fall_detected) {
+                    clearInterval(statusInterval);
+                    window.location.href = "{{ url_for('alert_page') }}";
+                }
+                
+                const postureEl = document.getElementById('status-posture');
+                if (data.current_state === 'FALLEN') {
+                    postureEl.textContent = 'FALLEN';
+                    postureEl.className = 'stat-value danger';
+                } else if (data.current_state === 'FALLING') {
+                    postureEl.textContent = 'FALLING...';
+                    postureEl.className = 'stat-value warning';
+                } else if (data.current_state === 'STANDING') {
+                    postureEl.textContent = 'STANDING';
+                    postureEl.className = 'stat-value success';
+                }
+
+                // Update text metrics values
+                const vSpread = data.v_spread || 0.0;
+                const hSpread = data.h_spread || 0.0;
+                const rhp = data.rhp || 0.0;
+
+                document.getElementById('val-v-spread').textContent = Math.round(vSpread * 100) + '%';
+                document.getElementById('val-h-spread').textContent = Math.round(hSpread * 100) + '%';
+                document.getElementById('val-rhp').textContent = Math.round(rhp * 100) + '%';
+
+                // Redraw canvases
+                updateDispersionChart(vSpread, hSpread);
+                updateSkeletonProfile(rhp, data.current_state);
+            })
+            .catch(err => {
+                console.error("Error polling fall status:", err);
+            });
+    }
+
+    function updateDispersionChart(vSpread, hSpread) {
+        vHistory.push(vSpread);
+        vHistory.shift();
+        hHistory.push(hSpread);
+        hHistory.shift();
+
+        const canvas = document.getElementById('dispersion-timeline-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // Draw horizontal grid lines
+        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+        ctx.lineWidth = 1;
+        for (let i = 1; i < 4; i++) {
+            const y = (h / 4) * i;
+            ctx.beginPath();
+            ctx.moveTo(0, y);
+            ctx.lineTo(w, y);
+            ctx.stroke();
+        }
+
+        // Draw line curves
+        function drawCurve(history, color) {
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = 2.5;
+            ctx.lineJoin = 'round';
+            for (let i = 0; i < history.length; i++) {
+                const x = (w / (history.length - 1)) * i;
+                const y = h - 10 - (history[i] * (h - 20));
+                if (i === 0) {
+                    ctx.moveTo(x, y);
+                } else {
+                    ctx.lineTo(x, y);
+                }
+            }
+            ctx.stroke();
+        }
+
+        drawCurve(vHistory, '#3b82f6'); // Vert Spread (Blue)
+        drawCurve(hHistory, '#f97316'); // Horiz Spread (Orange)
+    }
+
+    function updateSkeletonProfile(rhp, currentState) {
+        const canvas = document.getElementById('skeleton-profile-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        const w = canvas.width;
+        const h = canvas.height;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // Dynamic nodes color based on warning level
+        let color = '#10b981'; // Green (Standing)
+        if (currentState === 'FALLEN') {
+            color = '#ef4444'; // Red
+        } else if (currentState === 'FALLING') {
+            color = '#f59e0b'; // Orange
+        }
+
+        const padding = 15;
+        const graphHeight = h - 2 * padding;
+
+        // Draw Spine line guide
+        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(w / 2, padding);
+        ctx.lineTo(w / 2, h - padding);
+        ctx.stroke();
+
+        // Map head position relative to head position (RHP)
+        const headY = padding + Math.min(graphHeight, Math.max(0, rhp * graphHeight));
+
+        // Anchor feet at bottom
+        ctx.fillStyle = 'rgba(255,255,255,0.3)';
+        ctx.beginPath();
+        ctx.arc(w / 2, h - padding, 4, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Hip position collapses dynamically relative to head
+        const hipY = h - padding - (h - padding - headY) * 0.45;
+        ctx.fillStyle = 'rgba(255,255,255,0.5)';
+        ctx.beginPath();
+        ctx.arc(w / 2, hipY, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Shoulder position
+        const shoulderY = headY + (hipY - headY) * 0.35;
+        ctx.fillStyle = 'rgba(255,255,255,0.75)';
+        ctx.beginPath();
+        ctx.arc(w / 2, shoulderY, 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Head node
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(w / 2, headY, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.shadowColor = color;
+        ctx.shadowBlur = 10;
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(w / 2, headY, 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+    {% else %}
+    // Upload drag-and-drop event handlers
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const uploadForm = document.getElementById('upload-form');
+    const progressContainer = document.getElementById('progress-container');
+    const progressBar = document.getElementById('progress-bar');
+    const uploadStatus = document.getElementById('upload-status');
+
+    if (dropZone) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            e.preventDefault();
+            dropZone.style.borderColor = 'var(--primary)';
+            dropZone.style.background = 'rgba(124, 58, 237, 0.05)';
+        }
+
+        function unhighlight(e) {
+            e.preventDefault();
+            dropZone.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+            dropZone.style.background = 'rgba(255, 255, 255, 0.01)';
+        }
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length) {
+                fileInput.files = files;
+                uploadFile();
+            }
+        }
+        
+        fileInput.addEventListener('change', () => {
+            if (fileInput.files.length) {
+                uploadFile();
+            }
+        });
+    }
+
+    function uploadFile() {
+        const formData = new FormData(uploadForm);
+        const xhr = new XMLHttpRequest();
+        
+        progressContainer.style.display = 'block';
+        uploadStatus.style.display = 'block';
+        dropZone.style.pointerEvents = 'none';
+        
+        xhr.upload.addEventListener('progress', e => {
+            if (e.lengthComputable) {
+                const percent = Math.round((e.loaded / e.total) * 100);
+                progressBar.style.width = percent + '%';
+                uploadStatus.textContent = `Uploading file... ${percent}%`;
+            }
+        });
+
+        xhr.onload = () => {
+            if (xhr.status === 200) {
+                const res = JSON.parse(xhr.responseText);
+                if (res.success) {
+                    uploadStatus.textContent = 'Upload complete! Redirecting to analytics...';
+                    window.location.href = "{{ url_for('upload_page') }}?file=" + encodeURIComponent(res.filename);
+                } else {
+                    alert('Upload failed: ' + res.error);
+                    resetUpload();
+                }
+            } else {
+                alert('An error occurred during upload.');
+                resetUpload();
+            }
+        };
+
+        xhr.onerror = () => {
+            alert('An error occurred during upload.');
+            resetUpload();
+        };
+
+        xhr.open('POST', uploadForm.action, true);
+        xhr.send(formData);
+    }
+
+    function resetUpload() {
+        progressContainer.style.display = 'none';
+        progressBar.style.width = '0%';
+        uploadStatus.style.display = 'none';
+        dropZone.style.pointerEvents = 'auto';
+        fileInput.value = '';
+    }
+    {% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,42 @@
+{% extends "layout.html" %}
+
+{% block title %}Dashboard | GuardianAI Fall Detection{% endblock %}
+
+{% block content %}
+<div class="hero">
+    <h1>Real-time Intelligent Fall Detection</h1>
+    <p>Using advanced deep learning pose estimation to monitor, detect, and alert instantly when falls occur. Protect your loved ones and patients with GuardianAI.</p>
+</div>
+
+<div class="option-grid">
+    <!-- Webcam Stream Card -->
+    <a href="{{ url_for('webcam') }}" class="glass-card option-card" id="card-webcam">
+        <div class="icon-wrapper">
+            <i class="fa-solid fa-video"></i>
+        </div>
+        <h2>Live Webcam Stream</h2>
+        <p>Start a live monitoring session using your laptop's integrated webcam. Keypoints are extracted in real-time, and if a fall is detected, the emergency alarm will trigger instantly.</p>
+        <span class="btn btn-primary" style="margin-top: 1.5rem;">
+            <i class="fa-solid fa-play"></i> Start Webcam Feed
+        </span>
+    </a>
+
+    <!-- Video Upload Card -->
+    <a href="{{ url_for('upload_page') }}" class="glass-card option-card" id="card-upload">
+        <div class="icon-wrapper">
+            <i class="fa-solid fa-file-video"></i>
+        </div>
+        <h2>Video File Analysis</h2>
+        <p>Upload pre-recorded video clips (e.g., security camera footage) to run fall detection diagnostics. View processed playback with pose estimation skeletons.</p>
+        <span class="btn btn-secondary" style="margin-top: 1.5rem;">
+            <i class="fa-solid fa-upload"></i> Upload Video
+        </span>
+    </a>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById('nav-home').classList.add('active');
+</script>
+{% endblock %}
