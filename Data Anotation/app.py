@@ -1,7 +1,7 @@
 import cv2
 import os 
 
-output_folder = "frames"
+output_folder = "frames1"
 video_path = r"d:\Mlops_Training\Data Anotation\videos\data.mp4"
 
 cap = cv2.VideoCapture(video_path)

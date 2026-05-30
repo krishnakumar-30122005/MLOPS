@@ -6,6 +6,7 @@ framerate = int(cap.get(cv2.CAP_PROP_FPS))
 interval = max(1, round(framerate * 0.25))
 framecount = 0
 count = 0
+
 while True:
     success, frame = cap.read()
     if not success:
